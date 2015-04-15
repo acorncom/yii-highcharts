@@ -60,21 +60,29 @@ class ActiveHighstockWidget extends HighstockWidget
 
         if(count($data) > 0) {
             foreach ($series as $i => $batch) {
+
+                // if this is true, we'll add additional data points right in to our series results
+                $hashDataPoints = (isset($batch['hashDataPoints'])) ? $batch['hashDataPoints'] : false;
+
                 if (isset($batch['time']) && isset($batch['data']) &&
                     !is_array($batch['time'])
                 ) {
                     $dateSeries = array();
                     foreach ($data as $row) {
 
-                        if($this->shouldRemoveNullValues($series[$i], $row)) {
+                        if($this->shouldRemoveNullValues($series[$i], $row, $hashDataPoints)) {
                             continue;
                         }
 
-                        $dateSeries[] = $this->processRow($row, $batch);
+                        $dateSeries[] = $this->processRow($row, $batch, $hashDataPoints);
                     }
 
                     // we'll work on the actual item, this may be PHP 5.3+ specific
-                    $this->sortDateSeries($dateSeries);
+                    if($hashDataPoints) {
+                        $this->sortDateSeriesByHash($dateSeries);
+                    } else {
+                        $this->sortDateSeriesSimpleArray($dateSeries);
+                    }
 
                     // clean up our time item so we don't accidentally conflict with Highstock
                     unset($this->options['series'][$i]['time']);
@@ -93,13 +101,17 @@ class ActiveHighstockWidget extends HighstockWidget
      *
      * @param $series
      * @param $row
+     * @param $hashDataPoints
      *
      * @return bool
      */
-    private function shouldRemoveNullValues($series, $row)
+    private function shouldRemoveNullValues($series, $row, $hashDataPoints)
     {
         if(isset($series['removeNulls']) && $series['removeNulls'] == true) {
-            if($row[$series['data']] == null) {
+
+            $key = (!$hashDataPoints) ? $series['data'] : $series['data']['y'];
+
+            if($row[$key] == null) {
                 return true;
             }
         }
@@ -112,9 +124,11 @@ class ActiveHighstockWidget extends HighstockWidget
      *
      * @param $row
      * @param $batch
+     * @param $hashDataPoints
+     *
      * @return array
      */
-    protected function processRow($row, $batch) {
+    protected function processRow($row, $batch, $hashDataPoints) {
         // if we're dealing with a javascript timestamp
         // then just setup our array
         $timeType = (isset($batch['timeType'])) ? $batch['timeType'] : 'mysql';
@@ -139,10 +153,8 @@ class ActiveHighstockWidget extends HighstockWidget
         }
 
         // process our data by running it through our data processing method
-        $data = $this->processData($row, $batch);
-
-        // push our data value on the front of what may be multiple data values
-        array_unshift($data, $time);
+        // and then place the time value on the front
+        $data = $this->processData($row, $batch, $time, $hashDataPoints);
 
         return $data;
     }
@@ -152,18 +164,35 @@ class ActiveHighstockWidget extends HighstockWidget
      *
      * @param $row
      * @param $batch
+     * @param $time
+     * @param $hashDataPoints
+     *
      * @return array
      */
-    protected function processData($row, $batch)
+    protected function processData($row, $batch, $time, $hashDataPoints)
     {
         if(!is_array($batch['data'])) {
-            return array(floatval($row[$batch['data']]));
+            return array($time, floatval($row[$batch['data']]));
         }
 
         $items = array();
-        foreach($batch['data'] as $item) {
-            $items[] = floatval($row[$item]);
+        foreach($batch['data'] as $key => $item) {
+
+            if($hashDataPoints) {
+                $items[$key] = floatval($row[$item]);
+                $numericKeys = false;
+            } else {
+                $items[] = floatval($row[$item]);
+            }
         }
+
+        // now we handle properly handling our time value
+        if($hashDataPoints) {
+            $items['x'] = $time;
+        } else {
+            array_unshift($items, $time);
+        }
+
         return $items;
     }
 
@@ -205,11 +234,23 @@ class ActiveHighstockWidget extends HighstockWidget
      * Sorts our date series so we have all the dates from first to last
      * @param $series
      */
-    protected function sortDateSeries(&$series) {
+    protected function sortDateSeriesSimpleArray(&$series) {
 
         //sort by first column (dates ascending order)
         foreach ($series as $key => $row) {
             $dates[$key] = $row[0];
+        }
+        array_multisort($dates, SORT_ASC, $series);
+    }
+    /**
+     * Sorts our date series so we have all the dates from first to last
+     * @param $series
+     */
+    protected function sortDateSeriesByHash(&$series) {
+
+        //sort by first column (dates ascending order)
+        foreach ($series as $key => $row) {
+            $dates[$key] = $row['x'];
         }
         array_multisort($dates, SORT_ASC, $series);
     }
