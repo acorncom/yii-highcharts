@@ -32,11 +32,11 @@ $this->widget('highcharts.ActiveHighstockWidget', array(
                 'name'  => 'Site percentile',
                 'time'  => 'RankDate',          // time column in the dataprovider
                 'type'  => 'arearange',
-                'removeNulls' => true,
                 'data'  => array(
                     'Column1',      // specify an array of data options
                     'Column2',      // if you are using an area range charts
                 ),
+                // to eliminate null values from a graph, use 'connectNulls' => false for Highstock
             ),
         ),
     ),
@@ -69,11 +69,6 @@ class ActiveHighstockWidget extends HighstockWidget
                 ) {
                     $dateSeries = array();
                     foreach ($data as $row) {
-
-                        if($this->shouldRemoveNullValues($series[$i], $row, $hashDataPoints)) {
-                            continue;
-                        }
-
                         $dateSeries[] = $this->processRow($row, $batch, $hashDataPoints);
                     }
 
@@ -94,29 +89,6 @@ class ActiveHighstockWidget extends HighstockWidget
         }
 
         parent::run();
-    }
-
-    /**
-     * Checks whether we want to remove null values from a series
-     *
-     * @param $series
-     * @param $row
-     * @param $hashDataPoints
-     *
-     * @return bool
-     */
-    private function shouldRemoveNullValues($series, $row, $hashDataPoints)
-    {
-        if(isset($series['removeNulls']) && $series['removeNulls'] == true) {
-
-            $key = (!$hashDataPoints) ? $series['data'] : $series['data']['y'];
-
-            if($row[$key] == null) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -172,17 +144,18 @@ class ActiveHighstockWidget extends HighstockWidget
     protected function processData($row, $batch, $time, $hashDataPoints)
     {
         if(!is_array($batch['data'])) {
-            return array($time, floatval($row[$batch['data']]));
+            $value = is_null($row[$batch['data']]) ? null : floatval($row[$batch['data']]);
+            return array($time, $value);
         }
 
         $items = array();
         foreach($batch['data'] as $key => $item) {
 
             if($hashDataPoints) {
-                $items[$key] = floatval($row[$item]);
+                $items[$key] = is_null($row[$item]) ? null : floatval($row[$item]);
                 $numericKeys = false;
             } else {
-                $items[] = floatval($row[$item]);
+                $items[] = is_null($row[$item]) ? null : floatval($row[$item]);
             }
         }
 
