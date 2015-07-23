@@ -144,7 +144,7 @@ class ActiveHighstockWidget extends HighstockWidget
     protected function processData($row, $batch, $time, $hashDataPoints)
     {
         if(!is_array($batch['data'])) {
-            $value = is_null($row[$batch['data']]) ? null : floatval($row[$batch['data']]);
+            $value = (!isset($row[$batch['data']]) || is_null($row[$batch['data']])) ? null : floatval($row[$batch['data']]);
             return array($time, $value);
         }
 
