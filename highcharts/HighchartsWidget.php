@@ -126,11 +126,11 @@ class HighchartsWidget extends CWidget
 		// register additional scripts
 		$extension = YII_DEBUG ? '.src.js' : '.js';
 		foreach ($this->scripts as $script) {
-			$cs->registerScriptFile("{$baseUrl}/{$script}{$extension}");
+			$cs->registerScriptFile("{$baseUrl}/{$script}{$extension}", CClientScript::POS_END);
 		}
 
 		// register embedded script
-		$cs->registerScript($id, $embeddedScript, CClientScript::POS_LOAD);
+		$cs->registerScript($id, $embeddedScript, CClientScript::POS_READY);
 	}
 
 }
